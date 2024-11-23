@@ -1,0 +1,9 @@
+{
+    "editor.defaultFormatter": "KevinRose.vsc-python-indent",
+    "[jsonc]": {
+        "editor.defaultFormatter": "vscode.json-language-features"
+    },
+    "[python]": {
+        "editor.defaultFormatter": "ms-python.autopep8",
+    },
+}
