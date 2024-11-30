@@ -57,6 +57,16 @@ def read_csv(path: str) -> tuple[np.ndarray, list[str]]:
         return (np.asarray(datalist, dtype=float), header)
 
 
+def min_max_normalize(data: np.ndarray) -> np.ndarray:
+    minimum1 = min(data[0])
+    diff1 = max(data[0]) - minimum1
+    minimum2 = min(data[1])
+    diff2 = max(data[1]) - minimum2
+    res1 = [((x - minimum1) / diff1) for x in data[0]]
+    res2 = [((x - minimum2) / diff2) for x in data[1]]
+    return np.asarray([res1, res2], dtype=float)
+
+
 def linear_regression_train(
         data: np.ndarray[np.ndarray[float]],
         learning_rate: float = 0.01,
@@ -76,7 +86,7 @@ def linear_regression_train(
     (x, y) = data
     m, b = .0, .0
     n = len(x)
-    for epoch in range(epochs):
+    for _ in range(epochs):
         y_pred = m * x + b
         dm = (-2 / n) * np.sum(x * (y - y_pred))
         db = (-2 / n) * np.sum(y - y_pred)
@@ -84,22 +94,24 @@ def linear_regression_train(
         m -= learning_rate * dm
         b -= learning_rate * db
 
+    plot.scatter(data[0], data[1])
+    plot.plot([min(x), m * min(x) + b], [max(x), m * max(x) + b])
+    plot.show()
+
 
 def main():
     """
     The program accepts 1 argument which defines
     the path to the training data
     """
-    """ if (len(sys.argv) != 2
+    if (len(sys.argv) != 2
             or not os.path.isfile(sys.argv[1])
             or not sys.argv[1].endswith(".csv")):
         log_error("Provide a valid path to a .csv file")
-        exit(Errors.INVALID_ARGUMENT.value) """
+        exit(Errors.INVALID_ARGUMENT.value)
     (data, headers) = read_csv("./data/data.csv")
-    plot.scatter(data[0], data[1])
-    plot.show()
-    print(data)
-    linear_regression_train(data)
+    norm_data = min_max_normalize(data)
+    linear_regression_train(norm_data)
 
 
 if __name__ == "__main__":
