@@ -1,3 +1,4 @@
+# %%
 import sys
 import os
 from enum import Enum
@@ -56,21 +57,52 @@ def read_csv(path: str) -> tuple[np.ndarray, list[str]]:
         return (np.asarray(datalist, dtype=float), header)
 
 
+def linear_regression_train(
+        data: np.ndarray[np.ndarray[float]],
+        learning_rate: float = 0.01,
+        epochs: int = 1000) -> None:
+    """
+    Trains the model with the data provided to this function
+
+    :param data: 2D tensor. The data is expected to be divided in two
+                sub-arrays
+    :type data: np.ndarray
+    :param alpha: the learning rate of the model, defaults to 0.01
+    :type alpha: float
+    :param epochs: the epochs (number of iterations) used by the model to
+                get fine-tuned, defaults to 1000
+    :type epochs: int
+    """
+    (x, y) = data
+    m, b = .0, .0
+    n = len(x)
+    for epoch in range(epochs):
+        y_pred = m * x + b
+        dm = (-2 / n) * np.sum(x * (y - y_pred))
+        db = (-2 / n) * np.sum(y - y_pred)
+
+        m -= learning_rate * dm
+        b -= learning_rate * db
+
+
 def main():
     """
     The program accepts 1 argument which defines
     the path to the training data
     """
-    if (len(sys.argv) != 2
+    """ if (len(sys.argv) != 2
             or not os.path.isfile(sys.argv[1])
             or not sys.argv[1].endswith(".csv")):
         log_error("Provide a valid path to a .csv file")
-        exit(Errors.INVALID_ARGUMENT.value)
-    (data, headers) = read_csv(sys.argv[1])
+        exit(Errors.INVALID_ARGUMENT.value) """
+    (data, headers) = read_csv("./data/data.csv")
     plot.scatter(data[0], data[1])
     plot.show()
     print(data)
+    linear_regression_train(data)
 
 
 if __name__ == "__main__":
     main()
+
+# %%
