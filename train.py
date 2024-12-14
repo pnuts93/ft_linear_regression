@@ -1,5 +1,6 @@
 # %%
 import sys
+import json
 from enum import Enum
 import numpy as np
 import csv
@@ -13,6 +14,12 @@ mse: list[float] = []
 fig_data: np.ndarray
 line, = ax1.plot([], [], color="red")
 loss_line, = ax2.plot([], [], color="red")
+min_norm_data: float
+max_norm_data: float
+min_x: float
+max_x: float
+min_y: float
+max_y: float
 
 
 class bcolors:
@@ -29,10 +36,10 @@ class bcolors:
 
 def animate(i):
     line.set_data(
-        [min(fig_data[0]),
-         max(fig_data[0])],
-        [theta[i][0] * min(fig_data[0]) + theta[i][1],
-         theta[i][0] * max(fig_data[0]) + theta[i][1]])
+        [min_norm_data,
+         max_norm_data],
+        [theta[i][0] * min_norm_data + theta[i][1],
+         theta[i][0] * max_norm_data + theta[i][1]])
     loss_line.set_data(range(i), mse[:i])
     return line, loss_line
 
@@ -75,6 +82,11 @@ def read_csv(path: str) -> tuple[np.ndarray, list[str]]:
         return (np.asarray(datalist, dtype=float), header)
 
 
+def write_to_json(theta0: float, theta1: float) -> None:
+    with open("model.json", "w") as f:
+        json.dump({"theta0": theta0, "theta1": theta1}, f)
+
+
 def min_max_normalize(data: np.ndarray) -> np.ndarray:
     """
     Normalize 2D tensor with feature scaling method
@@ -89,8 +101,16 @@ def min_max_normalize(data: np.ndarray) -> np.ndarray:
     minimum2 = min(data[1])
     diff2 = max(data[1]) - minimum2
     res1 = [((x - minimum1) / diff1) for x in data[0]]
-    res2 = [((x - minimum2) / diff2) for x in data[1]]
+    res2 = [((y - minimum2) / diff2) for y in data[1]]
     return np.asarray([res1, res2], dtype=float)
+
+
+def scale_coefficients(
+        theta0: float,
+        theta1: float) -> tuple[float, float]:
+    th1: float = theta1 * (max_y - min_y) / (max_x - min_x)
+    th0: float = min_y + theta0 * (max_y - min_y) - th1 * min_x
+    return th0, th1
 
 
 def linear_regression_train(
@@ -112,10 +132,12 @@ def linear_regression_train(
     (x, y) = data
     m, b = .0, .0
     n = len(x)
+    div = -2 / n
     for i in range(epochs):
         y_pred = m * x + b
-        dm = (-2 / n) * np.sum(x * (y - y_pred))
-        db = (-2 / n) * np.sum(y - y_pred)
+        diff_vectors = y - y_pred
+        dm = div * np.sum(x * diff_vectors)
+        db = div * np.sum(diff_vectors)
 
         m -= learning_rate * dm
         b -= learning_rate * db
@@ -123,6 +145,43 @@ def linear_regression_train(
         if i % 10 == 0:
             mse.append((1 / n) * np.sum((y - y_pred) ** 2))
             theta.append((m, b))
+    th0, th1 = scale_coefficients(b, m)
+    write_to_json(th0, th1)
+
+
+def linear_regression_train_subject(
+        data: np.ndarray[np.ndarray[float]],
+        learning_rate: float = 0.05,
+        epochs: int = 1000) -> None:
+    """
+    Trains the model with the data provided to this function. This version of
+    the function uses the formulas presented in the subject instead of the ones
+    calculated from the partial derivatives of the mean square error formula.
+
+    :param data: 2D tensor. The data is expected to be divided in two
+                sub-arrays
+    :type data: np.ndarray
+    :param alpha: the learning rate of the model, defaults to 0.01
+    :type alpha: float
+    :param epochs: the epochs (number of iterations) used by the model to
+                get fine-tuned, defaults to 1000
+    :type epochs: int
+    """
+    (x, y) = data
+    theta0, theta1 = .0, .0
+    n = len(x)
+    div = 1 / n
+    for i in range(epochs):
+        y_pred = theta0 + theta1 * x
+        diff_vectors = y_pred - y
+        theta0 -= learning_rate * div * np.sum(diff_vectors)
+        theta1 -= learning_rate * div * np.sum(diff_vectors * x)
+
+        if i % 10 == 0:
+            mse.append((1 / n) * np.sum((y - y_pred) ** 2))
+            theta.append((theta1, theta0))
+    th0, th1 = scale_coefficients(theta0, theta1)
+    write_to_json(th0, th1)
 
 
 def main():
@@ -136,10 +195,22 @@ def main():
         log_error("Provide a valid path to a .csv file")
         exit(Errors.INVALID_ARGUMENT.value) """
     (data, headers) = read_csv("./data/data.csv")
+    global min_x
+    global max_x
+    global min_y
+    global max_y
+    min_x = np.min(data[0])
+    max_x = np.max(data[0])
+    min_y = np.min(data[1])
+    max_y = np.max(data[1])
     norm_data = min_max_normalize(data)
     global fig_data
+    global min_norm_data
+    global max_norm_data
     fig_data = norm_data
-    linear_regression_train(norm_data)
+    min_norm_data = min(fig_data[0])
+    max_norm_data = max(fig_data[0])
+    linear_regression_train_subject(norm_data)
     ax1.set_box_aspect(1)
     ax1.set_xlim([-0.1, 1.1])
     ax1.set_ylim([-0.1, 1.1])
